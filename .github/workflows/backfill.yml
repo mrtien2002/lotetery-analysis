@@ -1,29 +1,29 @@
-name: Backfill Lottery Data
+name: Backfill 300 days
 
 on:
   workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of days to backfill'
+        required: true
+        default: '300'
 
 jobs:
   backfill:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Create credentials.json
+      - name: Install deps
         run: |
-          cat > credentials.json <<EOF
-          ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-          EOF
-
-      - name: Run backfill (300 days)
-        run: python pipeline.py --backfill 300
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Backfill
+        env:
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          SHEET_NAME: ${{ secrets.SHEET_NAME }}
+        run: |
+          python pipeline.py --backfill ${{ github.event.inputs.days }}
