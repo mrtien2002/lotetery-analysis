@@ -1,7 +1,7 @@
 name: Backfill Lottery Data
 
 on:
-  workflow_dispatch:   # Cho phép chạy thủ công
+  workflow_dispatch:
 
 jobs:
   backfill:
@@ -20,14 +20,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Create credentials.json
-        run: echo "${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}" > credentials.json
-
-      - name: Debug credentials.json
         run: |
-          echo "=== BEGIN CREDS ==="
-          ls -l credentials.json || echo "File not found!"
-          head -n 20 credentials.json || echo "Cannot preview file!"
-          echo "=== END CREDS ==="
+          cat > credentials.json <<EOF
+          ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          EOF
 
       - name: Run backfill (300 days)
         run: python pipeline.py --backfill 300
