@@ -1,104 +1,25 @@
-from __future__ import annotations
-import os
-import argparse
-from datetime import date
 import pandas as pd
 
-from gsheets_utils import open_spreadsheet, ensure_worksheet, write_dataframe, read_dataframe
-from fetch_xsmb import fetch_range, fetch_for_date
-from analysis import explode_raw_daily_lo2d, make_full_calendar_counts, make_analysis_table
-
-RAW_WS = 'raw_daily_lo2d'
-COUNTS_WS = 'daily_counts'
-ANALYSIS_WS = 'analysis_today'
-
-
-def _append_or_update_raw(ws, new_df: pd.DataFrame):
-    """Append hoặc update dữ liệu raw, đảm bảo cột date đồng bộ kiểu datetime."""
-    # Lấy dữ liệu hiện có
-    cur = read_dataframe(ws)
-
-    # Ép kiểu date về datetime
-    if not cur.empty:
-        cur["date"] = pd.to_datetime(cur["date"], errors="coerce")
-    new_df["date"] = pd.to_datetime(new_df["date"], errors="coerce")
-
-    # Gộp dữ liệu
-    merged = pd.concat([cur, new_df], ignore_index=True)
-    merged = merged.sort_values("date").drop_duplicates(subset=["date"], keep="last")
-
-    # Chuyển date về string ISO để lưu (YYYY-MM-DD)
-    merged["date"] = merged["date"].dt.strftime("%Y-%m-%d")
-
-    # Ghi lại vào sheet
-    write_dataframe(ws, merged)
-    print("✅ Raw data updated!")
-
-
-def backfill(days: int):
-    """Lấy dữ liệu N ngày gần nhất và cập nhật toàn bộ phân tích."""
-    ss = open_spreadsheet()
-    ws_raw = ensure_worksheet(ss, RAW_WS)
-    print(f"Fetching last {days} days...")
-    results = fetch_range(days)
+def explode_raw_daily_lo2d(raw_df: pd.DataFrame):
     rows = []
-    for d_iso, arr in results.items():
-        row = {'date': d_iso}
-        for i, v in enumerate(arr, start=1):
-            row[f'n{i}'] = v
-        rows.append(row)
-    df = pd.DataFrame(rows)
-    _append_or_update_raw(ws_raw, df)
+    for _, row in raw_df.iterrows():
+        for i in range(1, 28):
+            n = row.get(f'n{i}')
+            if pd.notna(n):
+                rows.append({'date': row['date'], 'number': int(n)})
+    return pd.DataFrame(rows)
 
-    # refresh counts + analysis
-    refresh_analysis()
+def make_full_calendar_counts(counts_df: pd.DataFrame, start_date, end_date):
+    all_days = pd.date_range(start_date, end_date, freq='D')
+    all_numbers = list(range(0, 100))
+    idx = pd.MultiIndex.from_product([all_days, all_numbers], names=['date', 'number'])
+    full = pd.DataFrame(index=idx).reset_index()
+    merged = full.merge(counts_df.groupby(['date','number']).size().reset_index(name='count'),
+                        on=['date','number'], how='left').fillna(0)
+    return merged
 
-
-def update_today():
-    """Lấy kết quả hôm nay và cập nhật vào sheet."""
-    ss = open_spreadsheet()
-    ws_raw = ensure_worksheet(ss, RAW_WS)
-    today = date.today().isoformat()
-    arr = fetch_for_date(date.today())
-    row = {'date': today}
-    for i, v in enumerate(arr, start=1):
-        row[f'n{i}'] = v
-    df = pd.DataFrame([row])
-    _append_or_update_raw(ws_raw, df)
-
-    refresh_analysis()
-
-
-def refresh_analysis():
-    """Cập nhật bảng counts và bảng phân tích hôm nay."""
-    ss = open_spreadsheet()
-    ws_raw = ensure_worksheet(ss, RAW_WS)
-    ws_counts = ensure_worksheet(ss, COUNTS_WS)
-    ws_ana = ensure_worksheet(ss, ANALYSIS_WS)
-
-    raw_df = read_dataframe(ws_raw)
-    if raw_df.empty:
-        print('⚠️ No raw data yet.')
-        return
-
-    # ép về datetime.date để tính toán
-    raw_df["date"] = pd.to_datetime(raw_df["date"], errors="coerce").dt.date
-    start_date = raw_df["date"].min()
-    end_date = raw_df["date"].max()
-    counts = explode_raw_daily_lo2d(raw_df)
-    full = make_full_calendar_counts(counts, start_date, end_date)
-    write_dataframe(ws_counts, full)
-    analysis = make_analysis_table(full, end_date)write_dataframe(ws_ana, analysis)
-    print("✅ Analysis refreshed!")
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--backfill', type=int, help='Fetch N days history and rebuild analysis.')
-    parser.add_argument('--update-today', action='store_true', help='Fetch today and update analysis.')
-    args = parser.parse_args()
-
-    if args.backfill:
-        backfill(args.backfill)
-    elif args.update_today:
-        update_today()
-    else:
-        print('Nothing to do. Use --backfill N or --update-today.')
+def make_analysis_table(full_df: pd.DataFrame, target_date):
+    subset = full_df[full_df['date'] <= pd.to_datetime(target_date)]
+    recent = subset.groupby('number')['count'].sum().reset_index()
+    recent = recent.sort_values('count', ascending=False)
+    return recent
