@@ -13,12 +13,13 @@ COUNTS_WS = 'daily_counts'
 ANALYSIS_WS = 'analysis_today'
 
 def _append_or_update_raw(ws, new_df: pd.DataFrame):
+    # Read current, append unique dates
     cur = read_dataframe(ws)
     if cur.empty:
         write_dataframe(ws, new_df)
         return
     merged = pd.concat([cur, new_df], ignore_index=True)
-    merged['date'] = pd.to_datetime(merged['date'], errors='coerce').dt.date
+    # Keep latest for each date
     merged = merged.sort_values('date').drop_duplicates(subset=['date'], keep='last')
     write_dataframe(ws, merged)
 
@@ -35,6 +36,7 @@ def backfill(days: int):
         rows.append(row)
     df = pd.DataFrame(rows)
     _append_or_update_raw(ws_raw, df)
+    # also refresh counts + analysis
     refresh_analysis()
 
 def update_today():
@@ -59,7 +61,7 @@ def refresh_analysis():
     if raw_df.empty:
         print('No raw data yet.')
         return
-    raw_df['date'] = pd.to_datetime(raw_df['date'], errors='coerce').dt.date
+    raw_df['date'] = pd.to_datetime(raw_df['date']).dt.date
     start_date = raw_df['date'].min()
     end_date = raw_df['date'].max()
 
