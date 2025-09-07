@@ -1,23 +1,49 @@
-from datetime import date 
+def fetch_minhngoc(d: date): 
 
-from fetch_xsmb import fetch_for_date, fetch_minhngoc, fetch_xskt 
+    # URL kết quả Miền Bắc theo ngày 
+
+    url = f"https://www.minhngoc.net.vn/ket-qua-xo-so/mien-bac/{d.strftime('%d-%m-%Y')}.html" 
+
+    r = requests.get(url, headers=HEADERS, timeout=30) 
+
+    r.raise_for_status() 
+
+    soup = BeautifulSoup(r.text, 'lxml') 
 
  
 
-today = date(2025, 9, 7) 
+    # Tìm khu vực bảng kết quả có id="kqmb" 
+
+    container = soup.find(id='kqmb') 
+
+    if not container: 
+
+        raise RuntimeError("Không tìm thấy khung kết quả kqmb") 
 
  
 
-try: 
+    # Lấy tất cả số trong bảng (chỉ lấy thẻ <td> hoặc <div> có chứa số) 
 
-    result = fetch_minhngoc(today) 
+    nums = [] 
 
-    print("✅ Lấy từ Minh Ngọc:", result) 
+    for td in container.find_all(['td', 'div']): 
 
-except Exception as e: 
+        txt = td.get_text(strip=True) 
 
-    print("❌ Minh Ngọc lỗi:", e) 
+        if txt.isdigit():  # chỉ giữ các ô toàn số 
 
-    result = fetch_xskt(today) 
+            if len(txt) >= 2: 
 
-    print("👉 Fallback sang XSKT:", result) 
+                nums.append(txt[-2:])  # chỉ lấy 2 số cuối 
+
+ 
+
+    # Sau khi lọc phải còn đúng 27 số 
+
+    if len(nums) != 27: 
+
+        raise RuntimeError(f"Sai số lượng: {len(nums)} số thay vì 27") 
+
+ 
+
+    return nums 
