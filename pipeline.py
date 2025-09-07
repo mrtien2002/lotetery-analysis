@@ -16,9 +16,16 @@ def _append_or_update_raw(ws, new_df: pd.DataFrame):
     # Read current, append unique dates
     cur = read_dataframe(ws)
     if cur.empty:
+        # ép date về dạng string trước khi ghi
+        new_df['date'] = pd.to_datetime(new_df['date']).dt.strftime("%Y-%m-%d")
         write_dataframe(ws, new_df)
         return
+
     merged = pd.concat([cur, new_df], ignore_index=True)
+
+    # Ép toàn bộ cột date về string YYYY-MM-DD
+    merged['date'] = pd.to_datetime(merged['date']).dt.strftime("%Y-%m-%d")
+
     # Keep latest for each date
     merged = merged.sort_values('date').drop_duplicates(subset=['date'], keep='last')
     write_dataframe(ws, merged)
@@ -61,6 +68,8 @@ def refresh_analysis():
     if raw_df.empty:
         print('No raw data yet.')
         return
+
+    # Ép date về kiểu datetime cho phân tích
     raw_df['date'] = pd.to_datetime(raw_df['date']).dt.date
     start_date = raw_df['date'].min()
     end_date = raw_df['date'].max()
@@ -79,7 +88,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.backfill:
-        backfill(args.backfill)
+backfill(args.backfill)
     elif args.update_today:
         update_today()
     else:
