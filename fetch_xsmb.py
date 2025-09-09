@@ -1,153 +1,77 @@
-from __future__ import annotations 
-
-import re 
-
-from datetime import date, timedelta 
+ 
 
 import requests 
 
 from bs4 import BeautifulSoup 
 
+from datetime import date 
+
  
 
 HEADERS = { 
 
-    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari' 
+    'User-Agent': 'Mozilla/5.0' 
 
 } 
 
  
 
-def extract_two_digits_all(text: str): 
+ORDER = ["ĐB", "G1", "G2", "G3", "G4", "G5", "G6", "G7"] 
 
-    # tìm tất cả số có >= 2 chữ số, lấy 2 số cuối của mỗi số 
-
-    nums = re.findall(r'\d{2,}', text) 
-
-    return [f"{int(n[-2:]):02d}" for n in nums] 
-
- 
-
-def normalize_to_27(arr: list[str]) -> list[str]: 
-
-    """ 
-
-    Chuẩn hóa kết quả về đúng 27 số (theo lô 2 chữ số miền Bắc). 
-
-    - Nếu thừa (>27): lấy 27 số đầu tiên. 
-
-    - Nếu thiếu (<27): padding thêm '' cho đủ 27. 
-
-    """ 
-
-    if len(arr) >= 27: 
-
-        return arr[:27] 
-
-    else: 
-
-        return arr + [''] * (27 - len(arr)) 
-
- 
-
-def fetch_minhngoc(d: date) -> list[str]: 
-
-    url = f"https://www.minhngoc.net.vn/ket-qua-xo-so/mien-bac/{d.strftime('%d-%m-%Y')}.html" 
-
-    r = requests.get(url, headers=HEADERS, timeout=30) 
-
-    r.raise_for_status() 
-
-    soup = BeautifulSoup(r.text, 'lxml') 
-
-    container = soup.find(id='kqmb') or soup 
-
-    text = container.get_text(' ', strip=True) 
-
-    arr = extract_two_digits_all(text) 
-
- 
-
-    # Loại bỏ trùng lặp, giữ thứ tự 
-
-    seen = [] 
-
-    for v in arr: 
-
-        if v not in seen: 
-
-            seen.append(v) 
-
- 
-
-    return normalize_to_27(seen) 
+COUNTS = [1, 1, 2, 6, 4, 6, 3, 4] 
 
  
 
 def fetch_xskt(d: date) -> list[str]: 
 
-    url = f"https://xskt.com.vn/ket-qua-xo-so/mien-bac/{d.strftime('%d-%m-%Y')}" 
+    url = f"https://xskt.net/so-ket-qua-300-ngay?ngay={d.strftime('%d-%m-%Y')}" 
 
     r = requests.get(url, headers=HEADERS, timeout=30) 
 
     r.raise_for_status() 
 
-    soup = BeautifulSoup(r.text, 'lxml') 
+    soup = BeautifulSoup(r.text, "lxml") 
 
-    text = soup.get_text(' ', strip=True) 
-
-    arr = extract_two_digits_all(text) 
+    text = soup.get_text("\n", strip=True) 
 
  
 
-    seen = [] 
+    results = [] 
 
-    for v in arr: 
+    for label, count in zip(ORDER, COUNTS): 
 
-        if v not in seen: 
+        pattern = rf"{label}\s+([\d\s]+)" 
 
-            seen.append(v) 
+        m = re.search(pattern, text) 
+
+        if not m: 
+
+            results.extend([""] * count) 
+
+            continue 
+
+        line = m.group(1).strip() 
+
+        nums = re.findall(r"\d+", line) 
+
+        nums = [n[-2:].zfill(2) for n in nums] 
+
+        results.extend(nums[:count] + [""] * max(0, count - len(nums))) 
+
+    return results 
 
  
 
-    return normalize_to_27(seen) 
+if __name__ == "__main__": 
 
- 
-
-def fetch_for_date(d: date) -> list[str]: 
-
-    try: 
-
-        return fetch_minhngoc(d) 
-
-    except Exception: 
-
-        return fetch_xskt(d) 
-
- 
-
-def fetch_range(days: int, end_date: date | None = None): 
-
-    if end_date is None: 
-
-        end_date = date.today() 
-
-    start_date = end_date - timedelta(days=days-1) 
-
-    results = {} 
-
-    for i in range(days): 
-
-        d = start_date + timedelta(days=i) 
+    for d in [date(2025, 9, 8), date(2025, 9, 9)]: 
 
         try: 
 
-            arr = fetch_for_date(d) 
+            arr = fetch_xskt(d) 
 
-            results[d.isoformat()] = arr 
+            print(f"{d} ({len(arr)} số): {arr}") 
 
         except Exception as e: 
 
-            results[d.isoformat()] = []  # lỗi thì để trống 
-
-    return results 
+            print(f"Lỗi {d}: {e}") 
