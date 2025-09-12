@@ -4,7 +4,7 @@ import pandas as pd
 
 # Đọc file gốc 
 
-df = pd.read_excel("du lieu_goc.xlsx", sheet_name="Sheet1") 
+df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1") 
 
  
 
