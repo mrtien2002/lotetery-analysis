@@ -1,24 +1,51 @@
+name: Analyze Excel Data 
 
-name: Analyze Excel Data
+ 
 
-on:
-  workflow_dispatch:   # Cho phép bạn chạy thủ công
+on: 
 
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
+  workflow_dispatch:   # Cho phép bạn chạy thủ công 
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+ 
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+jobs: 
 
-      - name: Install dependencies
-        run: pip install pandas openpyxl
+  analyze: 
 
-      - name: Run analyze script
-        run: python analyze_excel.py
+    runs-on: ubuntu-latest 
+
+ 
+
+    steps: 
+
+      - name: Checkout code 
+
+        uses: actions/checkout@v3 
+
+ 
+
+      - name: Set up Python 
+
+        uses: actions/setup-python@v4 
+
+        with: 
+
+          python-version: '3.11' 
+
+ 
+
+      - name: Install dependencies 
+
+        run: pip install pandas openpyxl 
+
+ 
+
+      - name: List files in workspace   # 👈 Thêm bước này để debug 
+
+        run: ls -R 
+
+ 
+
+      - name: Run analyze script 
+
+        run: python analyze_excel.py 
