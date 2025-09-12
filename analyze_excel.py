@@ -1,37 +1,21 @@
-import pandas as pd 
-
- 
-
-# Đọc file gốc (đặt ở thư mục gốc repo, tên chính xác: du_lieu_goc.xlsx) 
-
-df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1", engine="openpyxl") 
-
- 
-
-# Tách cột Ket_qua thành danh sách các số 
-
-df_split = df['Ket_qua'].str.split(',', expand=True) 
-
- 
-
-# Đặt tên cột n1 -> n27 
-
-df_split.columns = [f"n{i}" for i in range(1, df_split.shape[1] + 1)] 
-
- 
-
-# Gộp lại với cột Ngay 
-
-df_final = pd.concat([df[['Ngay']], df_split], axis=1) 
-
- 
-
-# Ghi ra sheet mới "ket_qua_hang_ngay" 
-
-with pd.ExcelWriter("du_lieu_da_xu_ly.xlsx", engine="openpyxl") as writer: 
-
-    df_final.to_excel(writer, sheet_name="ket_qua_hang_ngay", index=False) 
-
- 
-
-print("✅ Đã tạo file du_lieu_da_xu_ly.xlsx với sheet ket_qua_hang_ngay") 
+Run python analyze_excel.py
+Traceback (most recent call last):
+  File "/home/runner/work/lotetery-analysis/lotetery-analysis/analyze_excel.py", line 7, in <module>
+    df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1", engine="openpyxl") 
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/pandas/io/excel/_base.py", line 495, in read_excel
+    io = ExcelFile(
+         ^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/pandas/io/excel/_base.py", line 1567, in __init__
+    self._reader = self._engines[engine](
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/pandas/io/excel/_openpyxl.py", line 553, in __init__
+    super().__init__(
+  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/pandas/io/excel/_base.py", line 563, in __init__
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.11.13/x64/lib/python3.11/site-packages/pandas/io/common.py", line 882, in get_handle
+    handle = open(handle, ioargs.mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'du_lieu_goc.xlsx'
+Error: Process completed with exit code 1.
