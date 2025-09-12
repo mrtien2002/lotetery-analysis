@@ -2,9 +2,9 @@ import pandas as pd
 
  
 
-# Đọc file gốc (ở thư mục gốc repo) 
+# Đọc file gốc (đặt ở thư mục gốc repo, tên chính xác: du_lieu_goc.xlsx) 
 
-df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1") 
+df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1", engine="openpyxl") 
 
  
 
@@ -26,7 +26,7 @@ df_final = pd.concat([df[['Ngay']], df_split], axis=1)
 
  
 
-# Ghi ra file mới với sheet ket_qua_hang_ngay 
+# Ghi ra sheet mới "ket_qua_hang_ngay" 
 
 with pd.ExcelWriter("du_lieu_da_xu_ly.xlsx", engine="openpyxl") as writer: 
 
