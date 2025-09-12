@@ -2,13 +2,13 @@ import pandas as pd
 
  
 
-# Đọc file gốc (Sheet1 có 2 cột: Ngay, Ket_qua) 
+# Đọc file gốc (ở thư mục gốc repo) 
 
 df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1") 
 
  
 
-# Tách cột Ket_qua thành danh sách 27 số 
+# Tách cột Ket_qua thành danh sách các số 
 
 df_split = df['Ket_qua'].str.split(',', expand=True) 
 
