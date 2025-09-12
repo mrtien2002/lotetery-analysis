@@ -2,13 +2,13 @@ import pandas as pd
 
  
 
-# Đọc file gốc 
+# Đọc file gốc (Sheet1 có 2 cột: Ngay, Ket_qua) 
 
-df = pd.read_excel("./du_lieu_goc.xlsx", sheet_name="Sheet1") 
+df = pd.read_excel("du_lieu_goc.xlsx", sheet_name="Sheet1") 
 
  
 
-# Tách cột Ket_qua thành danh sách các số 
+# Tách cột Ket_qua thành danh sách 27 số 
 
 df_split = df['Ket_qua'].str.split(',', expand=True) 
 
@@ -26,7 +26,7 @@ df_final = pd.concat([df[['Ngay']], df_split], axis=1)
 
  
 
-# Ghi ra sheet mới "ket_qua_hang_ngay" 
+# Ghi ra file mới với sheet ket_qua_hang_ngay 
 
 with pd.ExcelWriter("du_lieu_da_xu_ly.xlsx", engine="openpyxl") as writer: 
 
