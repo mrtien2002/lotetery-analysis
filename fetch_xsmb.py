@@ -1,62 +1,76 @@
- 
-
 import requests 
 
-from bs4 import BeautifulSoup 
+import datetime 
 
-from datetime import date 
-
- 
-
-HEADERS = { 
-
-    'User-Agent': 'Mozilla/5.0' 
-
-} 
+import pandas as pd 
 
  
 
-ORDER = ["ĐB", "G1", "G2", "G3", "G4", "G5", "G6", "G7"] 
+# URL nguồn dữ liệu xổ số miền Bắc 
 
-COUNTS = [1, 1, 2, 6, 4, 6, 3, 4] 
-
- 
-
-def fetch_xskt(d: date) -> list[str]: 
-
-    url = f"https://xskt.net/so-ket-qua-300-ngay?ngay={d.strftime('%d-%m-%Y')}" 
-
-    r = requests.get(url, headers=HEADERS, timeout=30) 
-
-    r.raise_for_status() 
-
-    soup = BeautifulSoup(r.text, "lxml") 
-
-    text = soup.get_text("\n", strip=True) 
+BASE_URL = "https://api.xoso.me/app/json-kq-mienbac" 
 
  
 
-    results = [] 
+def fetch_for_date(d: datetime.date): 
 
-    for label, count in zip(ORDER, COUNTS): 
+    """Lấy kết quả cho 1 ngày""" 
 
-        pattern = rf"{label}\s+([\d\s]+)" 
+    date_str = d.strftime("%d-%m-%Y") 
 
-        m = re.search(pattern, text) 
+    url = f"{BASE_URL}?date={date_str}" 
 
-        if not m: 
+    print(f"🔹 Fetching {url}") 
 
-            results.extend([""] * count) 
+    r = requests.get(url) 
 
-            continue 
+    if r.status_code != 200: 
 
-        line = m.group(1).strip() 
+        raise Exception(f"❌ Không thể tải dữ liệu ngày {date_str}: {r.status_code}") 
 
-        nums = re.findall(r"\d+", line) 
+ 
 
-        nums = [n[-2:].zfill(2) for n in nums] 
+    data = r.json() 
 
-        results.extend(nums[:count] + [""] * max(0, count - len(nums))) 
+    if "data" not in data or "MB" not in data["data"]: 
+
+        raise Exception(f"❌ Dữ liệu không hợp lệ cho ngày {date_str}") 
+
+ 
+
+    prizes = data["data"]["MB"]["prizes"] 
+
+    all_nums = [] 
+
+    for p in prizes.values(): 
+
+        for num in p: 
+
+            all_nums.append(str(num)[-2:].zfill(2)) 
+
+    return all_nums 
+
+ 
+
+def fetch_range(days: int): 
+
+    """Lấy dữ liệu N ngày gần nhất""" 
+
+    today = datetime.date.today() 
+
+    results = {} 
+
+    for i in range(days): 
+
+        d = today - datetime.timedelta(days=i) 
+
+        try: 
+
+            results[d.isoformat()] = fetch_for_date(d) 
+
+        except Exception as e: 
+
+            print(f"⚠️ Bỏ qua {d}: {e}") 
 
     return results 
 
@@ -64,14 +78,6 @@ def fetch_xskt(d: date) -> list[str]:
 
 if __name__ == "__main__": 
 
-    for d in [date(2025, 9, 8), date(2025, 9, 9)]: 
+    # Test chạy trực tiếp 
 
-        try: 
-
-            arr = fetch_xskt(d) 
-
-            print(f"{d} ({len(arr)} số): {arr}") 
-
-        except Exception as e: 
-
-            print(f"Lỗi {d}: {e}") 
+    print(fetch_for_date(datetime.date.today())) 
