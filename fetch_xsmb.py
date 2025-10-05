@@ -1,83 +1,113 @@
 import requests 
 
-import datetime 
+from bs4 import BeautifulSoup 
 
-import pandas as pd 
+from datetime import date, timedelta 
 
- 
-
-# URL nguồn dữ liệu xổ số miền Bắc 
-
-BASE_URL = "https://api.xoso.me/app/json-kq-mienbac" 
+import re 
 
  
 
-def fetch_for_date(d: datetime.date): 
+HEADERS = { 
 
-    """Lấy kết quả cho 1 ngày""" 
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " 
 
-    date_str = d.strftime("%d-%m-%Y") 
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36" 
 
-    url = f"{BASE_URL}?date={date_str}" 
-
-    print(f"🔹 Fetching {url}") 
-
-    r = requests.get(url) 
-
-    if r.status_code != 200: 
-
-        raise Exception(f"❌ Không thể tải dữ liệu ngày {date_str}: {r.status_code}") 
+} 
 
  
 
-    data = r.json() 
+def extract_two_digits(text: str): 
 
-    if "data" not in data or "MB" not in data["data"]: 
+    """Trích xuất 27 số cuối 2 chữ số từ văn bản""" 
 
-        raise Exception(f"❌ Dữ liệu không hợp lệ cho ngày {date_str}") 
+    nums = re.findall(r'\d{2,}', text) 
+
+    # Lấy 2 số cuối cùng của từng chuỗi 
+
+    nums = [n[-2:] for n in nums] 
+
+    # Giữ thứ tự, loại bỏ trùng 
+
+    seen = [] 
+
+    for n in nums: 
+
+        if n not in seen: 
+
+            seen.append(n) 
+
+    return seen[-27:]  # chỉ lấy 27 số cuối (chuẩn của miền Bắc) 
 
  
 
-    prizes = data["data"]["MB"]["prizes"] 
+def fetch_ketqua(d: date): 
 
-    all_nums = [] 
+    """Lấy kết quả từ trang ketqua.net""" 
 
-    for p in prizes.values(): 
+    url = f"https://ketqua.net/xo-so-mien-bac-ngay-{d.strftime('%d-%m-%Y')}" 
 
-        for num in p: 
+    print(f"🔹 Fetching: {url}") 
 
-            all_nums.append(str(num)[-2:].zfill(2)) 
+    r = requests.get(url, headers=HEADERS, timeout=20) 
 
-    return all_nums 
+    r.raise_for_status() 
+
+    soup = BeautifulSoup(r.text, "html.parser") 
 
  
 
-def fetch_range(days: int): 
+    # Tìm bảng kết quả 
 
-    """Lấy dữ liệu N ngày gần nhất""" 
+    result_table = soup.find("table", {"id": "result_tab_mb"}) 
 
-    today = datetime.date.today() 
+    if not result_table: 
+
+        raise ValueError("❌ Không tìm thấy bảng kết quả trên trang ketqua.net") 
+
+ 
+
+    text = result_table.get_text(" ", strip=True) 
+
+    numbers = extract_two_digits(text) 
+
+    return numbers 
+
+ 
+
+def fetch_for_date(d: date): 
+
+    """Lấy kết quả 1 ngày""" 
+
+    try: 
+
+        return fetch_ketqua(d) 
+
+    except Exception as e: 
+
+        print(f"⚠️ Lỗi khi lấy dữ liệu ngày {d}: {e}") 
+
+        return [] 
+
+ 
+
+def fetch_range(days: int, end_date: date | None = None): 
+
+    """Lấy kết quả trong nhiều ngày""" 
+
+    if end_date is None: 
+
+        end_date = date.today() 
+
+    start_date = end_date - timedelta(days=days - 1) 
 
     results = {} 
 
     for i in range(days): 
 
-        d = today - datetime.timedelta(days=i) 
+        d = start_date + timedelta(days=i) 
 
-        try: 
-
-            results[d.isoformat()] = fetch_for_date(d) 
-
-        except Exception as e: 
-
-            print(f"⚠️ Bỏ qua {d}: {e}") 
+        results[d.isoformat()] = fetch_for_date(d) 
 
     return results 
-
- 
-
-if __name__ == "__main__": 
-
-    # Test chạy trực tiếp 
-
-    print(fetch_for_date(datetime.date.today())) 
