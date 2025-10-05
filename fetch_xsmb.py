@@ -1,113 +1,143 @@
-import requests 
+ 
 
-from bs4 import BeautifulSoup 
+import requests 
 
 from datetime import date, timedelta 
 
-import re 
+from bs4 import BeautifulSoup 
 
  
-
-HEADERS = { 
-
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " 
-
-                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36" 
-
-} 
-
- 
-
-def extract_two_digits(text: str): 
-
-    """Trích xuất 27 số cuối 2 chữ số từ văn bản""" 
-
-    nums = re.findall(r'\d{2,}', text) 
-
-    # Lấy 2 số cuối cùng của từng chuỗi 
-
-    nums = [n[-2:] for n in nums] 
-
-    # Giữ thứ tự, loại bỏ trùng 
-
-    seen = [] 
-
-    for n in nums: 
-
-        if n not in seen: 
-
-            seen.append(n) 
-
-    return seen[-27:]  # chỉ lấy 27 số cuối (chuẩn của miền Bắc) 
-
- 
-
-def fetch_ketqua(d: date): 
-
-    """Lấy kết quả từ trang ketqua.net""" 
-
-    url = f"https://ketqua.net/xo-so-mien-bac-ngay-{d.strftime('%d-%m-%Y')}" 
-
-    print(f"🔹 Fetching: {url}") 
-
-    r = requests.get(url, headers=HEADERS, timeout=20) 
-
-    r.raise_for_status() 
-
-    soup = BeautifulSoup(r.text, "html.parser") 
-
- 
-
-    # Tìm bảng kết quả 
-
-    result_table = soup.find("table", {"id": "result_tab_mb"}) 
-
-    if not result_table: 
-
-        raise ValueError("❌ Không tìm thấy bảng kết quả trên trang ketqua.net") 
-
- 
-
-    text = result_table.get_text(" ", strip=True) 
-
-    numbers = extract_two_digits(text) 
-
-    return numbers 
 
  
 
 def fetch_for_date(d: date): 
 
-    """Lấy kết quả 1 ngày""" 
+    """ 
 
-    try: 
+    Lấy kết quả xổ số miền Bắc cho 1 ngày cụ thể. 
 
-        return fetch_ketqua(d) 
+    Ưu tiên lấy từ ketqua.net, nếu lỗi sẽ tự fallback sang xskt.net. 
 
-    except Exception as e: 
+    Trả về list gồm 27 số (theo thứ tự các giải). 
 
-        print(f"⚠️ Lỗi khi lấy dữ liệu ngày {d}: {e}") 
+    """ 
 
-        return [] 
+    date_str = d.strftime("%d-%m-%Y") 
 
  
 
-def fetch_range(days: int, end_date: date | None = None): 
+    # Danh sách các nguồn dự phòng 
 
-    """Lấy kết quả trong nhiều ngày""" 
+    urls = [ 
 
-    if end_date is None: 
+        f"https://ketqua.net/xo-so-mien-bac-ngay-{date_str}", 
 
-        end_date = date.today() 
+        f"https://xskt.net/xo-so-mien-bac-ngay-{date_str}", 
 
-    start_date = end_date - timedelta(days=days - 1) 
+    ] 
+
+ 
+
+    for url in urls: 
+
+        print(f"🔹 Fetching: {url}") 
+
+        try: 
+
+            r = requests.get(url, timeout=15) 
+
+            r.raise_for_status() 
+
+            html = r.text 
+
+ 
+
+            soup = BeautifulSoup(html, "html.parser") 
+
+ 
+
+            # Tìm tất cả các số trong bảng kết quả 
+
+            numbers = [span.text.strip() for span in soup.select("td span, div span") if span.text.strip().isdigit()] 
+
+ 
+
+            # Lọc bỏ số trùng và chỉ lấy 27 số đầu tiên 
+
+            unique_numbers = [] 
+
+            for n in numbers: 
+
+                if n not in unique_numbers: 
+
+                    unique_numbers.append(n) 
+
+            result = unique_numbers[:27] 
+
+ 
+
+            if len(result) >= 10: 
+
+                print(f"✅ Lấy dữ liệu ngày {d} thành công ({len(result)} số).") 
+
+                return result 
+
+            else: 
+
+                print(f"⚠️ Số lượng kết quả ít ({len(result)}), thử nguồn khác...") 
+
+ 
+
+        except Exception as e: 
+
+            print(f"⚠️ Lỗi khi lấy từ {url}: {e}") 
+
+ 
+
+    print(f"❌ Không lấy được dữ liệu ngày {d}.") 
+
+    return [] 
+
+ 
+
+ 
+
+def fetch_range(days: int): 
+
+    """ 
+
+    Lấy dữ liệu nhiều ngày gần nhất. 
+
+    Trả về dict: { 'YYYY-MM-DD': [list 27 số], ... } 
+
+    """ 
 
     results = {} 
 
+    today = date.today() 
+
     for i in range(days): 
 
-        d = start_date + timedelta(days=i) 
+        d = today - timedelta(days=i) 
 
-        results[d.isoformat()] = fetch_for_date(d) 
+        arr = fetch_for_date(d) 
+
+        results[d.isoformat()] = arr 
 
     return results 
+
+ 
+
+ 
+
+if __name__ == "__main__": 
+
+    # Test riêng file này 
+
+    print("🧪 Đang test fetch cho hôm nay...") 
+
+    today = date.today() 
+
+    data = fetch_for_date(today) 
+
+    print(f"Kết quả: {data}") 
