@@ -1,5 +1,3 @@
- 
-
 import requests 
 
 from datetime import date, timedelta 
@@ -8,95 +6,91 @@ from bs4 import BeautifulSoup
 
  
 
+# Danh sách các domain dự phòng 
+
+DOMAINS = [ 
+
+    "https://ketqua.net", 
+
+    "https://xoso.me", 
+
+    "https://www.minhngoc.net.vn" 
+
+] 
+
+ 
+
+def _fetch_from_domain(domain: str, d: date): 
+
+    """Thử lấy dữ liệu từ 1 domain cụ thể""" 
+
+    date_str = d.strftime("%d-%m-%Y") 
+
+    url = f"{domain}/xo-so-mien-bac-ngay-{date_str}" 
+
+    print(f"🔹 Fetching: {url}") 
+
+    try: 
+
+        r = requests.get(url, timeout=10) 
+
+        r.raise_for_status() 
+
+    except Exception as e: 
+
+        print(f"⚠️ Không truy cập được {domain}: {e}") 
+
+        return None 
+
+ 
+
+    # Phân tích HTML 
+
+    soup = BeautifulSoup(r.text, "html.parser") 
+
+    text = soup.get_text(" ", strip=True) 
+
+    numbers = [] 
+
+ 
+
+    for part in text.split(): 
+
+        if part.isdigit() and len(part) in (2, 5): 
+
+            n2 = part[-2:] 
+
+            if n2.isdigit(): 
+
+                numbers.append(n2) 
+
+ 
+
+    if len(numbers) >= 27: 
+
+        return numbers[-27:]  # Lấy 27 số cuối 
+
+    return None 
+
+ 
+
  
 
 def fetch_for_date(d: date): 
 
-    """ 
+    """Lấy kết quả cho 1 ngày (tự thử nhiều domain nếu lỗi)""" 
 
-    Lấy kết quả xổ số miền Bắc cho 1 ngày cụ thể. 
+    for domain in DOMAINS: 
 
-    Ưu tiên lấy từ ketqua.net, nếu lỗi sẽ tự fallback sang xskt.net. 
+        result = _fetch_from_domain(domain, d) 
 
-    Trả về list gồm 27 số (theo thứ tự các giải). 
+        if result: 
 
-    """ 
+            print(f"✅ Lấy thành công từ {domain}: {len(result)} số.") 
 
-    date_str = d.strftime("%d-%m-%Y") 
+            return result 
 
- 
-
-    # Danh sách các nguồn dự phòng 
-
-    urls = [ 
-
-        f"https://ketqua.net/xo-so-mien-bac-ngay-{date_str}", 
-
-        f"https://xskt.net/xo-so-mien-bac-ngay-{date_str}", 
-
-    ] 
-
- 
-
-    for url in urls: 
-
-        print(f"🔹 Fetching: {url}") 
-
-        try: 
-
-            r = requests.get(url, timeout=15) 
-
-            r.raise_for_status() 
-
-            html = r.text 
-
- 
-
-            soup = BeautifulSoup(html, "html.parser") 
-
- 
-
-            # Tìm tất cả các số trong bảng kết quả 
-
-            numbers = [span.text.strip() for span in soup.select("td span, div span") if span.text.strip().isdigit()] 
-
- 
-
-            # Lọc bỏ số trùng và chỉ lấy 27 số đầu tiên 
-
-            unique_numbers = [] 
-
-            for n in numbers: 
-
-                if n not in unique_numbers: 
-
-                    unique_numbers.append(n) 
-
-            result = unique_numbers[:27] 
-
- 
-
-            if len(result) >= 10: 
-
-                print(f"✅ Lấy dữ liệu ngày {d} thành công ({len(result)} số).") 
-
-                return result 
-
-            else: 
-
-                print(f"⚠️ Số lượng kết quả ít ({len(result)}), thử nguồn khác...") 
-
- 
-
-        except Exception as e: 
-
-            print(f"⚠️ Lỗi khi lấy từ {url}: {e}") 
-
- 
-
-    print(f"❌ Không lấy được dữ liệu ngày {d}.") 
-
-    return [] 
+    raise RuntimeError(f"❌ Không thể lấy dữ liệu ngày {d.strftime('%d-%m-%Y')} từ bất kỳ domain nào.") 
 
  
 
@@ -104,13 +98,7 @@ def fetch_for_date(d: date):
 
 def fetch_range(days: int): 
 
-    """ 
-
-    Lấy dữ liệu nhiều ngày gần nhất. 
-
-    Trả về dict: { 'YYYY-MM-DD': [list 27 số], ... } 
-
-    """ 
+    """Lấy kết quả trong N ngày gần nhất""" 
 
     results = {} 
 
@@ -120,24 +108,12 @@ def fetch_range(days: int):
 
         d = today - timedelta(days=i) 
 
-        arr = fetch_for_date(d) 
+        try: 
 
-        results[d.isoformat()] = arr 
+            results[d.isoformat()] = fetch_for_date(d) 
+
+        except Exception as e: 
+
+            print(f"⚠️ Bỏ qua {d}: {e}") 
 
     return results 
-
- 
-
- 
-
-if __name__ == "__main__": 
-
-    # Test riêng file này 
-
-    print("🧪 Đang test fetch cho hôm nay...") 
-
-    today = date.today() 
-
-    data = fetch_for_date(today) 
-
-    print(f"Kết quả: {data}") 
