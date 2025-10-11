@@ -1,32 +1,26 @@
-import requests 
-
 from datetime import date, timedelta 
+
+import requests 
 
 from bs4 import BeautifulSoup 
 
  
 
-# Danh sách các domain dự phòng 
-
 DOMAINS = [ 
 
-    "https://ketqua.net", 
+    "https://www.minhngoc.net.vn", 
 
     "https://xoso.me", 
 
-    "https://www.minhngoc.net.vn" 
+    "https://ketqua.net" 
 
 ] 
 
  
 
-def _fetch_from_domain(domain: str, d: date): 
+def fetch_from_domain(domain: str, d: date): 
 
-    """Thử lấy dữ liệu từ 1 domain cụ thể""" 
-
-    date_str = d.strftime("%d-%m-%Y") 
-
-    url = f"{domain}/xo-so-mien-bac-ngay-{date_str}" 
+    url = f"{domain}/xo-so-mien-bac-ngay-{d.strftime('%d-%m-%Y')}" 
 
     print(f"🔹 Fetching: {url}") 
 
@@ -42,63 +36,47 @@ def _fetch_from_domain(domain: str, d: date):
 
         return None 
 
- 
-
-    # Phân tích HTML 
-
     soup = BeautifulSoup(r.text, "html.parser") 
 
-    text = soup.get_text(" ", strip=True) 
+    nums = [] 
 
-    numbers = [] 
+    # Tìm các thẻ td hoặc span hoặc div chứa kết quả 
 
- 
+    for tag in soup.find_all(["td","span","div"]): 
 
-    for part in text.split(): 
+        text = tag.get_text(strip=True) 
 
-        if part.isdigit() and len(part) in (2, 5): 
+        if text.isdigit() and len(text) >= 2: 
 
-            n2 = part[-2:] 
+            nums.append(text[-2:])  # lấy 2 số cuối 
 
-            if n2.isdigit(): 
+    if len(nums) >= 27: 
 
-                numbers.append(n2) 
+        print(f"✅ Lấy được {len(nums)} số từ {domain}") 
 
- 
+        return nums[:27] 
 
-    if len(numbers) >= 27: 
-
-        return numbers[-27:]  # Lấy 27 số cuối 
+    print(f"⚠️ Thiếu số ({len(nums)} số) từ {domain}") 
 
     return None 
 
  
 
- 
-
 def fetch_for_date(d: date): 
-
-    """Lấy kết quả cho 1 ngày (tự thử nhiều domain nếu lỗi)""" 
 
     for domain in DOMAINS: 
 
-        result = _fetch_from_domain(domain, d) 
+        arr = fetch_from_domain(domain, d) 
 
-        if result: 
+        if arr: 
 
-            print(f"✅ Lấy thành công từ {domain}: {len(result)} số.") 
+            return arr 
 
-            return result 
-
-    raise RuntimeError(f"❌ Không thể lấy dữ liệu ngày {d.strftime('%d-%m-%Y')} từ bất kỳ domain nào.") 
-
- 
+    return None  # không lấy được 
 
  
 
 def fetch_range(days: int): 
-
-    """Lấy kết quả trong N ngày gần nhất""" 
 
     results = {} 
 
@@ -108,12 +86,14 @@ def fetch_range(days: int):
 
         d = today - timedelta(days=i) 
 
-        try: 
+        arr = fetch_for_date(d) 
 
-            results[d.isoformat()] = fetch_for_date(d) 
+        if arr: 
 
-        except Exception as e: 
+            results[d.isoformat()] = arr 
 
-            print(f"⚠️ Bỏ qua {d}: {e}") 
+        else: 
+
+            print(f"⚠️ Bỏ qua ngày {d.strftime('%d-%m-%Y')} vì không lấy được kết quả") 
 
     return results 
